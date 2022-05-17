@@ -114,6 +114,8 @@ jobs:
         with:
           sarif_file: 'trivy-image-results.sarif'
           category: trivy-image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push the Image to ECR
         id: push-image
