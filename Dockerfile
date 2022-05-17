@@ -1,22 +1,22 @@
-FROM openjdk:11-jre-slim as builder
-WORKDIR application
-#ADD maven/${project.build.finalName}.jar ${project.build.finalName}.jar
-ARG JAR_FILE=target/*.jar
-#RUN echo ${project.build.finalName}
-COPY ${JAR_FILE} app.jar
-RUN java -Djarmode=layertools -jar app.jar extract
+FROM openjdk:11-jdk
 
-FROM openjdk:11-jre-slim
-LABEL PROJECT_NAME=sb-transaction-service \
-      PROJECT=com.sb
-LABEL "collect_logs_with_filebeat"="true"
-LABEL "decode_log_event_to_json_object"="true"
+WORKDIR /usr/src/app
+COPY target/*.jar ./app.jar
 
-EXPOSE 8080
+RUN	chown -R ${SERVICE_USER}:${SERVICE_GROUP} ./app.jar
 
-WORKDIR application
-COPY --from=builder application/dependencies/ ./
-COPY --from=builder application/spring-boot-loader/ ./
-COPY --from=builder application/snapshot-dependencies/ ./
-COPY --from=builder application/application/ ./
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "org.springframework.boot.loader.JarLauncher"]
+USER ${SERVICE_USER}
+
+ARG BUILD_DATE
+ARG BUILD_VERSION
+ARG COMMIT
+
+LABEL org.label-schema.vendor="Weaveworks" \
+  org.label-schema.build-date="${BUILD_DATE}" \
+  org.label-schema.version="${BUILD_VERSION}" \
+  org.label-schema.name="SpringBoot API" \
+  org.label-schema.description="REST API service" \
+  org.label-schema.vcs-ref="${COMMIT}" \
+  org.label-schema.schema-version="1.0"
+
+ENTRYPOINT ["java","-jar","./app.jar", "--port=80"]
