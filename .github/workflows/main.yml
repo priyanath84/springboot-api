@@ -1,0 +1,148 @@
+---
+name: GitHub Action based CI Pipeline for Shipping
+on:
+  pull_request:
+    branches: [ main ]
+jobs:
+
+  compile:
+    #runs-on: self-hosted
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        java: [ 11 ]
+    name: Java ${{ matrix.java }} compile
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-package: jdk
+          java-version: ${{ matrix.java }}
+      - name: Compile Test and Code Analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+          SONAR_HOST_URL: http://ch-sonarqube.southeastasia.cloudapp.azure.com:9000
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.verbose=true
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+          SONAR_HOST_URL: http://ch-sonarqube.southeastasia.cloudapp.azure.com:9000
+
+  build:
+    runs-on: ubuntu-20.04
+    needs: compile
+    name: Build the Maven Project and Docker Image then Push to ECR
+    env:
+      GROUP: weaveworksdemos
+      REPO: shipping
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+          java-package: jdk
+      - name: Build project without testing
+        working-directory: ./
+        run: mvn -B verify -DskipTests
+      - name: Upload Maven build artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: artifact.jar
+          path: ./target/shipping.jar
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Increment latest tag from git
+        id: increment-git-tag
+        run: |
+          bash ./build/git_update.sh -v minor main
+
+      - name: Build and Tag the Image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+
+      - name: Scan images
+        id: scan-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.GROUP }}/${{ env.REPO }}:${{ steps.increment-git-tag.outputs.git-tag }}
+          scan-type: 'fs'
+          severity: CRITICAL
+          #format: 'table'
+          #exit-code: 1
+          #template: '@/contrib/sarif.tpl'
+          #output: 'trivy-results.sarif'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: trivy-image
+
+      - name: Push the Image to ECR
+        id: push-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  list_artifacts:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: call webhook to get artifacts
+      env:
+        FOR_WEBHOOKS_SECRET: ${{ secrets.FOR_WEBHOOKS_SECRET }}
+        GITHUB_REPOSITORY: springboot-api
+      run: |
+        echo "::add-mask::$FOR_WEBHOOKS_SECRET"
+        curl --verbose --fail --show-error --location --request GET "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts" --header "Authorization: token $FOR_WEBHOOKS_SECRET" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.v3+json'
+
+    
+  cleanup_job:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: call webhook to delete artifacts
+      env:
+        FOR_WEBHOOKS_SECRET: ${{ secrets.FOR_WEBHOOKS_SECRET }}
+        GITHUB_REPOSITORY: springboot-api
+      run: |
+        echo "::add-mask::$FOR_WEBHOOKS_SECRET"
+        curl --verbose --fail --show-error --location --request POST "https://api.github.com/repos/$GITHUB_REPOSITORY/dispatches" --header "Authorization: token $FOR_WEBHOOKS_SECRET" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.everest-preview+json' --data-raw "{ \"event_type\": \"delete_all_artifacts\", \"client_payload\": {\"parent_runid\": \"$GITHUB_RUN_ID\", \"parent_repo\": \"$GITHUB_REPOSITORY\"} }"
