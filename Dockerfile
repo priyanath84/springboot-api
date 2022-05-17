@@ -11,8 +11,7 @@ ARG BUILD_DATE
 ARG BUILD_VERSION
 ARG COMMIT
 
-LABEL org.label-schema.vendor="Weaveworks" \
-  org.label-schema.build-date="${BUILD_DATE}" \
+LABEL org.label-schema.build-date="${BUILD_DATE}" \
   org.label-schema.version="${BUILD_VERSION}" \
   org.label-schema.name="SpringBoot API" \
   org.label-schema.description="REST API service" \

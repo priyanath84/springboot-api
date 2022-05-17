@@ -40,8 +40,8 @@ jobs:
     needs: compile
     name: Build the Maven Project and Docker Image then Push to ECR
     env:
-      GROUP: weaveworksdemos
-      REPO: shipping
+      GROUP: priyanath84
+      REPO: springboot-api
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -63,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: artifact.jar
-          path: ./target/shipping.jar
+          path: ./target/springboot-api-1.0-SNAPSHOT.jar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
