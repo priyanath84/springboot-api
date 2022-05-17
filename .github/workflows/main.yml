@@ -1,5 +1,5 @@
 ---
-name: GitHub Action based CI Pipeline for Shipping
+name: GitHub Action based CI Pipeline for SpringBoot API
 on:
   pull_request:
     branches: [ main ]
