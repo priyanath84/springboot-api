@@ -2,7 +2,7 @@
 name: GitHub Action based CI Pipeline for SpringBoot API
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main,dev ]
   push:
     branches: [ main ]
 jobs:
