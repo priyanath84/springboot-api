@@ -130,11 +130,11 @@ jobs:
     steps:
     - name: call webhook to get artifacts
       env:
-        FOR_WEBHOOKS_SECRET: ${{ secrets.FOR_WEBHOOKS_SECRET }}
-        GITHUB_REPOSITORY: springboot-api
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        echo "::add-mask::$FOR_WEBHOOKS_SECRET"
-        curl --verbose --fail --show-error --location --request GET "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts" --header "Authorization: token $FOR_WEBHOOKS_SECRET" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.v3+json'
+        echo "::add-mask::$GITHUB_TOKEN"
+        curl --verbose --fail --show-error --location --request GET "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts" --header "Authorization: token $GITHUB_TOKEN" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.v3+json'
 
     
   cleanup_job:
@@ -143,8 +143,8 @@ jobs:
     steps:
     - name: call webhook to delete artifacts
       env:
-        FOR_WEBHOOKS_SECRET: ${{ secrets.FOR_WEBHOOKS_SECRET }}
-        GITHUB_REPOSITORY: springboot-api
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        echo "::add-mask::$FOR_WEBHOOKS_SECRET"
-        curl --verbose --fail --show-error --location --request POST "https://api.github.com/repos/$GITHUB_REPOSITORY/dispatches" --header "Authorization: token $FOR_WEBHOOKS_SECRET" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.everest-preview+json' --data-raw "{ \"event_type\": \"delete_all_artifacts\", \"client_payload\": {\"parent_runid\": \"$GITHUB_RUN_ID\", \"parent_repo\": \"$GITHUB_REPOSITORY\"} }"
+        echo "::add-mask::$GITHUB_TOKEN"
+        curl --verbose --fail --show-error --location --request POST "https://api.github.com/repos/$GITHUB_REPOSITORY/dispatches" --header "Authorization: token $GITHUB_TOKEN" --header 'Content-Type: application/json' --header 'Accept: application/vnd.github.everest-preview+json' --data-raw "{ \"event_type\": \"delete_all_artifacts\", \"client_payload\": {\"parent_runid\": \"$GITHUB_RUN_ID\", \"parent_repo\": \"$GITHUB_REPOSITORY\"} }"
