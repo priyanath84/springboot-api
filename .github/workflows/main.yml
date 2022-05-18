@@ -40,8 +40,10 @@ jobs:
     needs: compile
     name: Build the Maven Project and Docker Image then Push to ECR
     env:
-      GROUP: priyanath84
+      GROUP: dhanuka84
       REPO: springboot-api
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -68,7 +70,7 @@ jobs:
       - name: Log in to the Container registry
         uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,21 +82,21 @@ jobs:
       - name: Build and Tag the Image to Amazon ECR
         id: build-image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          DOCKER_REGISTRY: ${{ env.REGISTRY }}
+          DOCKER_REPOSITORY: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $DOCKER_REGISTRY/$DOCKER_REPOSITORY:$IMAGE_TAG .
 
       - name: Scan images
         id: scan-image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          DOCKER_REGISTRY: ${{ env.REGISTRY }}
+          DOCKER_REPOSITORY: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.GROUP }}/${{ env.REPO }}:${{ steps.increment-git-tag.outputs.git-tag }}
+          image-ref: ${{ env.GROUP }}/${{ env.REPO }}:${{ steps.increment-git-tag.outputs.git-tag }}
           scan-type: 'fs'
           severity: CRITICAL
           #format: 'table'
@@ -116,11 +118,11 @@ jobs:
       - name: Push the Image to ECR
         id: push-image
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.GROUP }}/${{ env.REPO }}
+          DOCKER_REGISTRY: ${{ env.REGISTRY }}
+          DOCKER_REPOSITORY: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ steps.increment-git-tag.outputs.git-tag }}
         run: |
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $DOCKER_REGISTRY/$DOCKER_REPOSITORY:$IMAGE_TAG
 
   list_artifacts:
     needs: [build]
