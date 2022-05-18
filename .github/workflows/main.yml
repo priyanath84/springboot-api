@@ -35,6 +35,16 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
           SONAR_HOST_URL: http://ch-sonarqube.southeastasia.cloudapp.azure.com:9000
 
+      - name: SonarCloud Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        with:
+          args:
+            -Dsonar.organization=priyanath84
+            -Dsonar.projectKey=springboot-api
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   build:
     runs-on: ubuntu-20.04
     needs: compile
