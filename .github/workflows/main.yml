@@ -28,7 +28,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
           SONAR_HOST_URL: http://ch-sonarqube.southeastasia.cloudapp.azure.com:9000
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.verbose=true
+        run: mvn -B verify
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@master
         env:
