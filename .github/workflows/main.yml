@@ -35,6 +35,11 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
           SONAR_HOST_URL: http://ch-sonarqube.southeastasia.cloudapp.azure.com:9000
 
+      - name: Remove File
+        uses: JesseTG/rm@v1.0.2
+        with:
+          path: ./pom.xml
+
       - name: SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@master
         with:
